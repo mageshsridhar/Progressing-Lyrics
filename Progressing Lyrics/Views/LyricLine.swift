@@ -80,7 +80,3 @@ struct LyricLine: View {
             }
     }
 }
-
-#Preview {
-    LyricLine()
-}

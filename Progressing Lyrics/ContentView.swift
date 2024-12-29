@@ -152,7 +152,7 @@ extension View {
     }
 }
 
-extension ContentView {
+extension View {
     func getFontType(i: Int) -> Font {
         return i < lyricsList.count - 1 ? .title : .subheadline
     }

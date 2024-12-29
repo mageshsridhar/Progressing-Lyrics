@@ -11,7 +11,7 @@ import SwiftUI
 struct Progressing_LyricsApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView().preferredColorScheme(.dark)
         }
     }
 }

@@ -22,7 +22,3 @@ struct OverlayView: View {
             .stroke(lineWidth: 38)
     }
 }
-
-#Preview {
-    OverlayView()
-}
