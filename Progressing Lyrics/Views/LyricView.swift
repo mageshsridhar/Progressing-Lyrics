@@ -13,9 +13,8 @@ struct LyricView: View {
     @Binding var songProgress: CGFloat
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            ForEach(0...lyricsList.count - 1, id: \.self) { i in
-                LyricLine(i: i, formattedProgress: $formattedProgress, songProgress: $songProgress)
-                
+            ForEach(lyrics.indices, id: \.self) { i in
+                LyricLine(index: i, formattedProgress: $formattedProgress, songProgress: $songProgress)
             }
         }.padding()
             .padding()

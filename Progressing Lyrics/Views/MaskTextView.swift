@@ -10,9 +10,8 @@ import SwiftUI
 struct MaskTextView : View {
     var lineNumber: Int
     var body: some View {
-        Text(lyricsList[lineNumber])
-            .font(getFontType(i: lineNumber))
-            .padding(.vertical, lyricsList[lineNumber].count == 5 ? 20 : 0)
+        Text(lyrics[lineNumber].text)
+            .font(lyricFont(for: lineNumber))
             .bold()
             .fixedSize(horizontal: false, vertical: true)
     }

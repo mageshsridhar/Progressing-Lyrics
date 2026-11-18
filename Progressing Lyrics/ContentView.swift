@@ -1,21 +1,28 @@
 //
 //  ContentView.swift
-//  AppleMusicLyricsPlayer
+//  Progressing Lyrics
 //
-//  Created by Magesh Sridhar on 2/5/23.
+//  Created by Magesh Sridhar on 12/28/24.
 //
 
 import SwiftUI
 import AVKit
 
 struct ContentView: View {
-    @State var audioPlayer: AVAudioPlayer!
-    @State var progress: CGFloat = 0.0
+    @State private var audioPlayer: AVAudioPlayer?
+    @State private var progress: CGFloat = 0.0
     @State private var playing: Bool = false
-    @State var duration: Double = 0.0
-    @State var formattedDuration: String = ""
-    @State var formattedProgress: String = "00:00"
-    
+    @State private var formattedDuration: String = ""
+    @State private var formattedProgress: String = "00:00"
+
+    private static let timeFormatter: DateComponentsFormatter = {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .positional
+        formatter.zeroFormattingBehavior = [.pad]
+        return formatter
+    }()
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -23,7 +30,7 @@ struct ContentView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: 50, height: 50)
-                    .cornerRadius(5)
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
                     .shadow(color: .black.opacity(0.4), radius: 3, x: 0, y: 5)
                 VStack(alignment: .leading) {
                     Text("Dreaming (feat. Danyka Nadeau)")
@@ -38,63 +45,60 @@ struct ContentView: View {
                 Image(systemName: "ellipsis.circle.fill")
                     .font(.title2)
                     .symbolRenderingMode(.hierarchical)
-                
-            }.padding(.horizontal).padding(.horizontal).padding(.top, 70)
-            LyricView(formattedProgress: $formattedProgress, songProgress: $progress).padding(.top, 30)
+            }
+            .padding(.horizontal, 32)
+            .padding(.top, 70)
+
+            LyricView(formattedProgress: $formattedProgress, songProgress: $progress)
+                .padding(.top, 30)
+
             GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Rectangle().frame(width: geometry.size.width , height: 6)
-                                .foregroundStyle(.secondary)
-                                .opacity(0.3)
-                            
-                            Rectangle().frame(width: min(progress*geometry.size.width, geometry.size.width), height: 6)
-                                .foregroundStyle(.primary)
-                        }.cornerRadius(45.0)
-            }.frame(height: 6)
-            .padding(.horizontal)
-            .padding(.horizontal)
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .frame(width: geometry.size.width, height: 6)
+                        .foregroundStyle(.secondary)
+                        .opacity(0.3)
+                    Rectangle()
+                        .frame(width: min(progress * geometry.size.width, geometry.size.width), height: 6)
+                        .foregroundStyle(.primary)
+                }
+                .clipShape(Capsule())
+            }
+            .frame(height: 6)
+            .padding(.horizontal, 32)
+
             HStack {
                 Text(formattedProgress)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
                 Spacer()
                 Text(formattedDuration)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
             }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
             .padding(.vertical, 10)
             .padding(.horizontal, 30)
-            
+
             HStack(alignment: .center, spacing: 20) {
                 Spacer()
                 Image(systemName: "backward.fill")
                     .font(.largeTitle)
                     .imageScale(.small)
                 Spacer()
-                Button(action: {
-                    if audioPlayer.isPlaying {
-                        playing = false
-                        self.audioPlayer.pause()
-                    } else if !audioPlayer.isPlaying {
-                        playing = true
-                        self.audioPlayer.play()
-                    }
-                }) {
-                    Image(systemName: playing ?
-                          "pause.fill" : "play.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 40, height:40)
-                    .foregroundColor(.white)
-                    
+                Button(action: togglePlayback) {
+                    Image(systemName: playing ? "pause.fill" : "play.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                        .foregroundStyle(.white)
                 }
+                .disabled(audioPlayer == nil)
                 Spacer()
                 Image(systemName: "forward.fill")
                     .font(.largeTitle)
                     .imageScale(.small)
                 Spacer()
-            }.frame(maxWidth: 100)
-            
+            }
+            .frame(maxWidth: 100)
+
             Text("Developed by Magesh Sridhar using SwiftUI 💜")
                 .font(.caption)
                 .bold()
@@ -102,58 +106,60 @@ struct ContentView: View {
                 .padding(.vertical, 10)
         }
         .frame(maxHeight: .infinity)
-        .background(Image("BG")
-            .resizable()
-            .scaledToFill()
-            .blur(radius: 80))
+        .background(
+            Image("BG")
+                .resizable()
+                .scaledToFill()
+                .blur(radius: 80)
+        )
         .ignoresSafeArea()
-        .onAppear {
-            initialiseAudioPlayer()
-        }
-    }
-    
-    func initialiseAudioPlayer() {
-        let formatter = DateComponentsFormatter()
-        formatter.allowedUnits = [.minute, .second]
-        formatter.unitsStyle = .positional
-        formatter.zeroFormattingBehavior = [ .pad ]
-        
-        let path = Bundle.main.path(forResource: "Dreaming", ofType: "mp3")!
-        self.audioPlayer = try! AVAudioPlayer(contentsOf: URL(fileURLWithPath: path))
-        self.audioPlayer.prepareToPlay()
-        formattedDuration = formatter.string(from: TimeInterval(self.audioPlayer.duration))!
-        duration = self.audioPlayer.duration
-        
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            if !audioPlayer.isPlaying {
-                playing = false
+        .task {
+            loadAudioPlayerIfNeeded()
+            // Poll playback ten times a second; cancelled automatically when the view goes away.
+            while !Task.isCancelled {
+                updateProgress()
+                try? await Task.sleep(for: .milliseconds(100))
             }
-            progress = CGFloat(audioPlayer.currentTime / audioPlayer.duration)
-            formattedProgress = formatter.string(from: TimeInterval(self.audioPlayer.currentTime))!
         }
     }
-}
 
+    private func togglePlayback() {
+        guard let audioPlayer else { return }
+        if audioPlayer.isPlaying {
+            audioPlayer.pause()
+            playing = false
+        } else {
+            audioPlayer.play()
+            playing = true
+        }
+    }
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
+    private func loadAudioPlayerIfNeeded() {
+        guard audioPlayer == nil else { return }
+        guard let url = Bundle.main.url(forResource: "Dreaming", withExtension: "mp3"),
+              let player = try? AVAudioPlayer(contentsOf: url) else {
+            print("Could not load Dreaming.mp3 from the app bundle")
+            return
+        }
+        player.prepareToPlay()
+        audioPlayer = player
+        formattedDuration = Self.format(player.duration)
+    }
+
+    private func updateProgress() {
+        guard let audioPlayer, audioPlayer.duration > 0 else { return }
+        if !audioPlayer.isPlaying {
+            playing = false
+        }
+        progress = CGFloat(audioPlayer.currentTime / audioPlayer.duration)
+        formattedProgress = Self.format(audioPlayer.currentTime)
+    }
+
+    private static func format(_ time: TimeInterval) -> String {
+        timeFormatter.string(from: time) ?? "00:00"
     }
 }
 
-
-
-extension View {
-    func glow(color: Color = .red, radius: CGFloat = 20) -> some View {
-        self
-            .shadow(color: color, radius: radius / 3)
-            .shadow(color: color, radius: radius / 3)
-            .shadow(color: color, radius: radius / 3)
-    }
-}
-
-extension View {
-    func getFontType(i: Int) -> Font {
-        return i < lyricsList.count - 1 ? .title : .subheadline
-    }
+#Preview {
+    ContentView()
 }
