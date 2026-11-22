@@ -2,7 +2,7 @@
 A recreation of Apple Music's time-synced lyrics in SwiftUI, with a few extra effects. Lyrics scroll and fill in as the song plays.
 
 <div align="center">
-  <img src="docs/demo.webp" width="280" alt="Lyrics filling in from left to right and scrolling up as a song plays" />
+  <img src="docs/demo.webp" width="300" alt="Lyrics filling in from left to right and scrolling up as a song plays" />
 </div>
 
 ### It's all in the details:
